@@ -25,4 +25,4 @@ python3 py_flow_meter.py {path_to_pcap}
 ```
 and the output is at the directory of the script.
 
-This repo also contains slowloris.pcap, which is a sample traffic captured during slowloris attack and slowloris_flow.csv is the extracted flow from the pcap file.
+This repo also contains slowloris.pcap, which is a sample traffic pcap file captured during slowloris attack and slowloris_flow.csv is the extracted flow from the pcap file.

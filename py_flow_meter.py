@@ -9,11 +9,31 @@ from IncrementalStatistics import IncStats
 
 
 def decode_flags(flag):
+    """
+    decodes the flag field into a integer array of flag counts.
+
+    Args:
+        flag (hexadecimal): the flag field in TCP packet.
+
+    Returns:
+        integer array: array of length 8 indicating corresponding flags.
+
+    """
     str_rep = "{:08b}".format(eval(flag))
     return np.array([i for i in str_rep], dtype='int32')
 
 
 def tcp_extractor(packet):
+    """
+    extracts information from a single tcp packet
+
+    Args:
+        packet (packet.tcp): only the tcp packet, all other layers are decapsulated.
+
+    Returns:
+        dictionary: information required for flow extraction.
+
+    """
     packet_info = {
         "protocol": "TCP",
         "dst_port": packet.dstport,
@@ -27,6 +47,17 @@ def tcp_extractor(packet):
 
 
 def update_stream(packet_info, stream):
+    """
+    updates the stream/connection/flow with extracted packet_info
+
+    Args:
+        packet_info (dictionary): information extracted with tcp_extractor(packet).
+        stream (dictionary): the information currently stored in flows dictionary.
+
+    Returns:
+        None: The information is updated directly in stream.
+
+    """
 
     # determine direction
     if packet_info["src_port"] == stream["src_port"]:
@@ -92,6 +123,18 @@ def cartesian_product(*args, seperator="_"):
 
 
 def save_flow(output_file, flows, feature_names):
+    """
+    saves the flow dictonary into a csv file.
+
+    Args:
+        output_file (string): path of the output file.
+        flows (dict): the flow dictionary of current flows.
+        feature_names (string array): the feature names .
+
+    Returns:
+        None: file saved to output_file.
+
+    """
     file = open(output_file, "w")
     file.write(",".join(feature_names))
     file.write("\n")
@@ -115,6 +158,18 @@ def save_flow(output_file, flows, feature_names):
 
 
 def flow_meter(pcap_file):
+    """
+    The main body of flow meter. The flow meter reads each packet in pcap_file,
+    if it is a new flow, it adds the stream index to flow dictonary, else it
+    updates the current stored statistics.
+
+    Args:
+        pcap_file (string): path to input pcap_file.
+
+    Returns:
+        None: output file is generated.
+
+    """
     flows = {}
     directions = ["fwd", "bwd"]
     ports = ["src", "dst"]

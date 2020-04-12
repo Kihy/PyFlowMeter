@@ -1,4 +1,3 @@
-import binascii
 import sys
 from itertools import product
 

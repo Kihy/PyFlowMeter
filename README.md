@@ -17,6 +17,11 @@ The features extracted are:
 
 They are based on CICFlowMeter
 
+## Requirements
+The main code requires numpy and pyshark which can be installed with pip, and tshark which can be installed with apt-get
+The testing code requires scipy for statistics calculation.
+
+
 ## Running the flowmeter
 To run, clone this repo and run
 

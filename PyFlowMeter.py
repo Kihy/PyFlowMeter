@@ -4,7 +4,7 @@ from itertools import product
 from Interfaces import *
 import numpy as np
 import pyshark
-
+import os
 from IncrementalStatistics import IncStats
 
 
@@ -172,9 +172,13 @@ class FlowMeter(Observer):
         for index in sorted(list(timed_out_stream)):
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
-            for i in range(4):
-                values += [x for x in stream[self.feature_names[8 +
-                                                                i * 6][:-5]].get_statistics()]
+            try:
+                for i in range(4):
+                    values += [x for x in stream[self.feature_names[8 +
+                                                                    i * 6][:-5]].get_statistics()]
+            except:
+                print(self.flows[index])
+                print(index)
             values += [x for x in stream["fwd_flags"]]
             values += [x for x in stream["bwd_flags"]]
             self.output_file.write(",".join(str(x) for x in values))
@@ -253,9 +257,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Network traffic flow generator.')
     parser.add_argument('pcap_file', type=str, help='the pcap file to be processed')
     parser.add_argument('output_file', type=str, help='output file to stored the data')
+    parser.add_argument('-r', '--recursive', action="store_true", help='whether to recursively process all files in directory')
 
     args = parser.parse_args()
-    opsi = OfflinePacketStreamingInterface(args.pcap_file)
-    fm = FlowMeter(args.output_file)
-    opsi.attach(fm)
-    opsi.start()
+    if args.recursive:
+        for dir in list(os.listdir(args.pcap_file)):
+            if dir.endswith(".pcap"):
+                input_file=os.path.join(args.pcap_file,dir)
+                print("processing:",input_file)
+                opsi = OfflinePacketStreamingInterface(input_file)
+                out_file_name=dir.split(".")[0]
+                out_file=os.path.join(args.pcap_file,out_file_name+'_flow.csv')
+                fm = FlowMeter(out_file)
+                print("output file:",out_file)
+                opsi.attach(fm)
+                opsi.start()
+    else:
+        opsi = OfflinePacketStreamingInterface(dir)
+        fm = FlowMeter(args.output_file)
+        opsi.attach(fm)
+        opsi.start()

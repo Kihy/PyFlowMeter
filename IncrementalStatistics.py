@@ -49,7 +49,7 @@ class IncStats():
         self.n += 1
 
         if verbose:
-            print(self.x)
+            print(x)
             print(self.n)
         if self.min > x:
             self.min = x

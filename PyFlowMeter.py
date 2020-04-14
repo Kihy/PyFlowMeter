@@ -180,7 +180,7 @@ class FlowMeter(Observer):
                 print("removing 118")
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
-
+            print(stream["fwd_tot_pkt"].get_statistics)
             for i in range(4):
                 values += [x for x in stream[self.feature_names[8 +
                                                                 i * 6][:-5]].get_statistics()]

@@ -273,7 +273,7 @@ if __name__ == '__main__':
                 opsi.attach(fm)
                 opsi.start()
     else:
-        opsi = OfflinePacketStreamingInterface(dir)
+        opsi = OfflinePacketStreamingInterface(args.pcap_file)
         fm = FlowMeter(args.output_file)
         opsi.attach(fm)
         opsi.start()

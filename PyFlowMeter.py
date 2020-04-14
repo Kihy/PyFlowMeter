@@ -200,6 +200,8 @@ class FlowMeter(Observer):
 
         """
         stream = self.flows[stream_id]
+        if stream_id=118:
+            print(stream[stream_id])
 
         # determine direction
         if packet_info["src_port"] == stream["src_port"]:

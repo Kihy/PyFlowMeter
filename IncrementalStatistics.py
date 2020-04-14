@@ -23,7 +23,7 @@ class IncStats():
         self.max = -float("Inf")
         self.eps = 1e-6
 
-    def update(self, x):
+    def update(self, x, verbose=False):
         """
         calculates high order statistics(mean, variance, skewness and kurtosis) using
         online algorithm (so we dont get any issues with memory overflow).
@@ -48,6 +48,9 @@ class IncStats():
         self.m2 = self.m2 + term1
         self.n += 1
 
+        if verbose:
+            print(self.x)
+            print(self.n)
         if self.min > x:
             self.min = x
         if x > self.max:

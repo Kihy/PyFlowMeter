@@ -200,8 +200,6 @@ class FlowMeter(Observer):
 
         """
         stream = self.flows[stream_id]
-        if stream_id=="118":
-            print(stream)
 
         # determine direction
         if packet_info["src_port"] == stream["src_port"]:
@@ -216,7 +214,10 @@ class FlowMeter(Observer):
         stream["duration"] = packet_info["duration"]
         stream[direction + "_tot_pkt"] += 1
         stream[direction + "_tot_byte"] += packet_len
-        stream[direction + "_pkt_size"].update(packet_len)
+        if stream_id=="118":
+            stream[direction + "_pkt_size"].update(packet_len, True)
+        else:
+            stream[direction + "_pkt_size"].update(packet_len)
         stream[direction + "_iat"].update(time_delta)
         stream[direction + "_flags"] += decode_flags(packet_info["flags"])
 

@@ -48,9 +48,6 @@ class IncStats():
         self.m2 = self.m2 + term1
         self.n += 1
 
-        if verbose:
-            print(x)
-            print(self.n)
         if self.min > x:
             self.min = x
         if x > self.max:

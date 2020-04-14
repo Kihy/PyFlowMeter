@@ -172,14 +172,11 @@ class FlowMeter(Observer):
         for index in sorted(list(timed_out_stream)):
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
-            try:
-                for i in range(4):
-                    values += [x for x in stream[self.feature_names[8 +
-                                                                    i * 6][:-5]].get_statistics()]
-            except:
-                print(self.flows[index])
-                print(index)
-                continue
+
+            for i in range(4):
+                values += [x for x in stream[self.feature_names[8 +
+                                                                i * 6][:-5]].get_statistics()]
+
             values += [x for x in stream["fwd_flags"]]
             values += [x for x in stream["bwd_flags"]]
             self.output_file.write(",".join(str(x) for x in values))
@@ -214,10 +211,9 @@ class FlowMeter(Observer):
         stream["duration"] = packet_info["duration"]
         stream[direction + "_tot_pkt"] += 1
         stream[direction + "_tot_byte"] += packet_len
-        if stream_id=="118":
-            stream[direction + "_pkt_size"].update(packet_len, True)
-        else:
-            stream[direction + "_pkt_size"].update(packet_len)
+
+        stream[direction + "_pkt_size"].update(packet_len, True)
+
         stream[direction + "_iat"].update(time_delta)
         stream[direction + "_flags"] += decode_flags(packet_info["flags"])
 

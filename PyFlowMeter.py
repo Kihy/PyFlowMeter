@@ -179,6 +179,7 @@ class FlowMeter(Observer):
             except:
                 print(self.flows[index])
                 print(index)
+                continue
             values += [x for x in stream["fwd_flags"]]
             values += [x for x in stream["bwd_flags"]]
             self.output_file.write(",".join(str(x) for x in values))

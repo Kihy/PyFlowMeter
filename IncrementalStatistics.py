@@ -47,6 +47,8 @@ class IncStats():
             (self.n - 1) - 3 * delta_n * self.m2
         self.m2 = self.m2 + term1
         self.n += 1
+        if verbose:
+            print(self.n)
 
         if self.min > x:
             self.min = x

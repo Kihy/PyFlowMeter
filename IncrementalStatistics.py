@@ -67,10 +67,9 @@ class IncStats():
         """
 
         mean = self.m
-        try:
-            std = np.sqrt(self.m2 / self.n)
-        except:
-            print(self.n)
+
+        std = np.sqrt(self.m2 / self.n)
+
         if self.m2 == 0:
             kurtosis = -3.
             skew = 0

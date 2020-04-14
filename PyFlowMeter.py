@@ -176,6 +176,8 @@ class FlowMeter(Observer):
 
     def _save_batch_flow(self, timed_out_stream, delete=True):
         for index in sorted(list(timed_out_stream)):
+            if index=="118":
+                print("removing 118")
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
 

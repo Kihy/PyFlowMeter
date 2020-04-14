@@ -184,7 +184,7 @@ class FlowMeter(Observer):
             for i in range(4):
                 values += [x for x in stream[self.feature_names[8 +
                                                                 i * 6][:-5]].get_statistics()]
-
+            print(stream["fwd_pkt_size"].get_statistics())
             values += [x for x in stream["fwd_flags"]]
             values += [x for x in stream["bwd_flags"]]
             self.output_file.write(",".join(str(x) for x in values))

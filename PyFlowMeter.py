@@ -156,15 +156,9 @@ class FlowMeter(Observer):
             # print(dir(packet.tcp))
             stream_id = packet.tcp.stream
             info = tcp_extractor(packet.tcp)
-            if stream_id=='118':
-                print("receive 118")
             if stream_id not in self.flows.keys():
                 self._init_stream(stream_id, info, arrival_time)
-                if stream_id=='118':
-                    print("init 118")
             self._update_stream(info, stream_id, arrival_time)
-            if stream_id=='118':
-                print("update 118")
             self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):
@@ -178,9 +172,6 @@ class FlowMeter(Observer):
         for index in sorted(list(timed_out_stream)):
 
             stream = self.flows[index]
-            if index=="118":
-                print("removing 118")
-                print(stream["fwd_pkt_size"].get_statistics())
             values = [stream[x] for x in self.feature_names[:8]]
 
             for i in range(4):
@@ -193,8 +184,6 @@ class FlowMeter(Observer):
             self.output_file.write("\n")
             if delete:
                 del self.flows[index]
-            if index=="118":
-                print("after deletion", self.flows.keys())
 
 
     def _update_stream(self, packet_info, stream_id, arrival_time):
@@ -224,9 +213,6 @@ class FlowMeter(Observer):
         stream["duration"] = packet_info["duration"]
         stream[direction + "_tot_pkt"] += 1
         stream[direction + "_tot_byte"] += packet_len
-        verbose=False
-        if stream_id=="118":
-            verbose=True
         stream[direction + "_pkt_size"].update(packet_len,verbose)
 
         stream[direction + "_iat"].update(time_delta)
@@ -263,7 +249,6 @@ class FlowMeter(Observer):
         self.flows[stream_id] = init_dict
 
     def close(self):
-        print("closing flows:",self.flows.keys())
         self._save_batch_flow(self.flows.keys())
         self.output_file.close()
 

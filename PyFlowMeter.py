@@ -176,11 +176,13 @@ class FlowMeter(Observer):
 
     def _save_batch_flow(self, timed_out_stream, delete=True):
         for index in sorted(list(timed_out_stream)):
+
+            stream = self.flows[index]
             if index=="118":
                 print("removing 118")
-            stream = self.flows[index]
+                print(stream["fwd_pkt_size"].get_statistics())
             values = [stream[x] for x in self.feature_names[:8]]
-            print(stream["fwd_pkt_size"].get_statistics())
+
             for i in range(4):
                 values += [x for x in stream[self.feature_names[8 +
                                                                 i * 6][:-5]].get_statistics()]

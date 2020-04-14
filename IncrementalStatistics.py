@@ -63,8 +63,6 @@ class IncStats():
             mean, std, skewness, kurtosis, min and max:
 
         """
-        if self.n==0:
-            return 0,0,0,0,0,0
 
         mean = self.m
         std = np.sqrt(self.m2 / self.n)

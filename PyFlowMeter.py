@@ -152,7 +152,7 @@ class FlowMeter(Observer):
 
     def update(self, packet):
         arrival_time = float(packet.sniff_timestamp)
-        if packet.highest_layer == "TCP":
+        if packet.transport_layer == "TCP":
             # print(dir(packet.tcp))
             stream_id = packet.tcp.stream
             info = tcp_extractor(packet.tcp)
@@ -160,6 +160,8 @@ class FlowMeter(Observer):
                 self._init_stream(stream_id, info, arrival_time)
             self._update_stream(info, stream_id, arrival_time)
             self._check_timeout(arrival_time)
+        elif packet.highest_layer=="UDP":
+            print(dir(packet.udp))
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []

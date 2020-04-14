@@ -156,9 +156,15 @@ class FlowMeter(Observer):
             # print(dir(packet.tcp))
             stream_id = packet.tcp.stream
             info = tcp_extractor(packet.tcp)
+            if stream_id=='118':
+                print("receive 118")
             if stream_id not in self.flows.keys():
                 self._init_stream(stream_id, info, arrival_time)
+                if stream_id=='118':
+                    print("init 118")
             self._update_stream(info, stream_id, arrival_time)
+            if stream_id=='118':
+                print("update 118")
             self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):

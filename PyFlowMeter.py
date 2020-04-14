@@ -191,7 +191,8 @@ class FlowMeter(Observer):
             self.output_file.write("\n")
             if delete:
                 del self.flows[index]
-            print(self.flows[index])
+
+
     def _update_stream(self, packet_info, stream_id, arrival_time):
         """
         updates the stream/connection/flow with extracted packet_info
@@ -258,6 +259,7 @@ class FlowMeter(Observer):
         self.flows[stream_id] = init_dict
 
     def close(self):
+        print(self.flows.keys())
         self._save_batch_flow(self.flows.keys())
         self.output_file.close()
 

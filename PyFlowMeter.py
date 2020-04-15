@@ -113,6 +113,7 @@ class OfflinePacketStreamingInterface(StreamingInterface):
         for packet in cap:
             self._notify(packet)
         self._end_signal()
+        cap.close()
 
     def _end_signal(self):
         """

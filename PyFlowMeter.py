@@ -6,6 +6,7 @@ import numpy as np
 import pyshark
 import os
 from IncrementalStatistics import IncStats
+import time
 
 
 def decode_flags(flag):
@@ -87,6 +88,7 @@ class OfflinePacketStreamingInterface(StreamingInterface):
     def __init__(self, pcap_file_path):
         self._observers = set()
         self.pcap_file_path = pcap_file_path
+        self.num_pkt=0
 
     def attach(self, observer):
         observer._subject = self
@@ -112,6 +114,7 @@ class OfflinePacketStreamingInterface(StreamingInterface):
         cap = pyshark.FileCapture(self.pcap_file_path)
         for packet in cap:
             self._notify(packet)
+            self.num_pkt+=1
         self._end_signal()
         cap.close()
 
@@ -125,6 +128,9 @@ class OfflinePacketStreamingInterface(StreamingInterface):
         """
         for observer in self._observers:
             observer.close()
+
+    def get_num_packets(self):
+        return self.num_pkt
 
 
 class FlowMeter(Observer):
@@ -283,6 +289,7 @@ if __name__ == '__main__':
             if dir.endswith(".pcap"):
                 input_file=os.path.join(args.pcap_file,dir)
                 print("processing:",input_file)
+                start_time=time.time()
                 opsi = OfflinePacketStreamingInterface(input_file)
                 out_file_name=dir.split(".")[0]
                 out_file=os.path.join(args.output_file,out_file_name+'_flow.csv')
@@ -290,6 +297,8 @@ if __name__ == '__main__':
                 print("output file:",out_file)
                 opsi.attach(fm)
                 opsi.start()
+                print("average {} packet per second".format(opsi.get_num_packets()/(time.time()-start_time)))
+
     else:
         opsi = OfflinePacketStreamingInterface(args.pcap_file)
         fm = FlowMeter(args.output_file)

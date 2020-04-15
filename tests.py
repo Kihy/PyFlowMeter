@@ -1,11 +1,60 @@
 import unittest
 from IncrementalStatistics import *
-from py_flow_meter import *
+from PyFlowMeter import *
 from scipy.stats import kurtosis, skew
-
+import pandas as pd
 class Test(unittest.TestCase):
 
+
+    def test_with_wireshark(self):
+        twitch="tests/pcap_file/twitch.pcap"
+        twitch_out="tests/flows/twitch_flow.csv"
+
+        # generate flow
+        opsi = OfflinePacketStreamingInterface(twitch)
+        fm = FlowMeter(twitch_out)
+        opsi.attach(fm)
+        opsi.start()
+
+        w_twitch_tcp=pd.read_csv("tests/wireshark/twitch_wireshark_conv_tcp.csv",header=0)
+        w_twitch_udp=pd.read_csv("tests/wireshark/twitch_wireshark_conv_udp.csv",header=0)
+        w_twitch=pd.concat([w_twitch_tcp,w_twitch_udp])
+        w_twitch=w_twitch.sort_values(by=['Rel Start'])
+        flows=pd.read_csv(twitch_out,header=0)
+        for i in range(len(flows.index)):
+            twitch_row=w_twitch.iloc[i,:]
+            flow_row=flows.iloc[i,:]
+
+            # check if port number match
+            if flow_row["src_port"]==twitch_row["Port A"]:
+                src="A"
+                dst="B"
+            elif flow_row["dst_port"]==twitch_row["Port A"]:
+                src="B"
+                dst="A"
+            else:
+
+                raise AssertionError("port number mismatch")
+
+            #check forward and backward packets match
+            self.assertEqual(flow_row["fwd_tot_pkt"], twitch_row["Packets {} → {}".format(src,dst)],msg="{}".format(i))
+            self.assertEqual(flow_row["bwd_tot_pkt"], twitch_row["Packets {} → {}".format(dst,src)],msg="{}".format(i))
+
+            #check bytes match.
+            self.assertEqual(flow_row["fwd_tot_byte"], twitch_row["Bytes {} → {}".format(src,dst)],msg="{}".format(i))
+            self.assertEqual(flow_row["bwd_tot_byte"], twitch_row["Bytes {} → {}".format(dst,src)],msg="{}".format(i))
+
+            #check duration
+            self.assertAlmostEqual(flow_row["duration"], twitch_row["Duration"],msg="{}".format(i), places=3)
+
     def test_decode_flags(self):
+        """
+        tests decoding hex representations into integer arrays
+
+        Returns:
+            None
+
+        """
         hex_repr1="0x10"
         hex_repr2="0x18"
         hex_repr3="0x12"

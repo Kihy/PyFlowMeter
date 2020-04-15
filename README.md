@@ -24,7 +24,7 @@ The flowmeter is based on observer pattern and consists of two modules:
 
 ## Requirements
 The main code requires numpy and pyshark which can be installed with pip, and tshark which can be installed with apt-get
-The testing code requires scipy for statistics calculation.
+The testing code requires scipy and pandas for statistics calculations and various checks.
 
 
 ## Running the flowmeter
@@ -35,4 +35,10 @@ python3 PyFlowMeter.py {path_to_pcap} {output_file_path}
 ```
 and the output is at output_file_path
 
-This repo also contains slowloris.pcap, which is a sample traffic pcap file captured during slowloris attack and slowloris_flow.csv is the extracted flow from the pcap file.
+This repo also contains tests/pcap_file folder, which contains some sample traffic pcap file captured during slowloris attack and normal traffic. These are mainly used for testing but you could use it as sample.
+
+## implementation Details
+- The offline version of the flow meter relies on tshark's internal stream indexes to determine flows. For real time interface, probably need to create 5 tuples as index.
+- The flow meter currently only checks TCP and UDP packets.
+- The packet size attribute is the size of the entire packet, rather than size of tcp payload. This is done so that we can compare with wireshark conversations.
+- The ordering of flows generated is by finish time, or if multiple flows have finished it is by start time.

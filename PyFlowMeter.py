@@ -46,7 +46,7 @@ def tcp_extractor(packet):
     extracts information from a single tcp packet
 
     Args:
-        packet (packet.tcp): only the tcp packet, all other layers are decapsulated.
+        packet (packet): the received packet
 
     Returns:
         dictionary: information required for flow extraction.
@@ -54,15 +54,22 @@ def tcp_extractor(packet):
     """
     packet_info = {
         "protocol": "TCP",
-        "dst_port": packet.dstport,
-        "src_port": packet.srcport,
-        "flags": packet.flags,
-        "len": packet.len,
-        "time_delta": packet.time_delta,
-        "duration": packet.time_relative
+        "dst_port": packet.tcp.dstport,
+        "src_port": packet.tcp.srcport,
+        "flags": packet.tcp.flags,
+        "len": packet.length,
     }
     return packet_info
 
+def udp_extractor(packet):
+    packet_info={
+    "protocol":"UDP",
+    "dst_port": packet.udp.dstport,
+    "src_port": packet.udp.srcport,
+    "flags": "0x00",
+    "len": packet.length
+    }
+    return packet_info
 
 class OfflinePacketStreamingInterface(StreamingInterface):
     """
@@ -153,15 +160,21 @@ class FlowMeter(Observer):
     def update(self, packet):
         arrival_time = float(packet.sniff_timestamp)
         if packet.transport_layer == "TCP":
-            # print(dir(packet.tcp))
-            stream_id = packet.tcp.stream
-            info = tcp_extractor(packet.tcp)
+
+            stream_id = "TCP{}".format(packet.tcp.stream)
+            info = tcp_extractor(packet)
             if stream_id not in self.flows.keys():
                 self._init_stream(stream_id, info, arrival_time)
             self._update_stream(info, stream_id, arrival_time)
             self._check_timeout(arrival_time)
-        elif packet.highest_layer=="UDP":
-            print(dir(packet.udp))
+
+        elif packet.transport_layer=="UDP":
+            stream_id="UDP{}".format(packet.udp.stream)
+            info=udp_extractor(packet)
+            if stream_id not in self.flows.keys():
+                self._init_stream(stream_id, info, arrival_time)
+            self._update_stream(info, stream_id, arrival_time)
+            self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []
@@ -171,7 +184,7 @@ class FlowMeter(Observer):
         self._save_batch_flow(timed_out_stream)
 
     def _save_batch_flow(self, timed_out_stream, delete=True):
-        for index in sorted(list(timed_out_stream)):
+        for index in sorted(list(timed_out_stream), key=lambda x: self.flows[x]["init_time"]):
 
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
@@ -210,9 +223,9 @@ class FlowMeter(Observer):
             direction = "bwd"
 
         packet_len = int(packet_info["len"])
-        time_delta = float(packet_info["time_delta"])
+        time_delta=arrival_time-stream["last_time"]
         stream["last_time"] = arrival_time
-        stream["duration"] = packet_info["duration"]
+        stream["duration"] = arrival_time-stream["init_time"]
         stream[direction + "_tot_pkt"] += 1
         stream[direction + "_tot_byte"] += packet_len
         stream[direction + "_pkt_size"].update(packet_len)
@@ -233,11 +246,12 @@ class FlowMeter(Observer):
 
         """
         init_dict = {}
-        features = ["duration", "protocol", "src_port", "dst_port"]
+        features = ["protocol", "src_port", "dst_port"]
         for feature in features:
             init_dict[feature] = packet_info[feature]
-
+        init_dict["duration"] = 0
         init_dict["last_time"] = arrival_time
+        init_dict["init_time"] = arrival_time
 
         directions = ["fwd", "bwd"]
         type = ["pkt", "byte"]

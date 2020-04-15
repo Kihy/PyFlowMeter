@@ -284,7 +284,7 @@ if __name__ == '__main__':
                 print("processing:",input_file)
                 opsi = OfflinePacketStreamingInterface(input_file)
                 out_file_name=dir.split(".")[0]
-                out_file=os.path.join(args.pcap_file,out_file_name+'_flow.csv')
+                out_file=os.path.join(args.output_file,out_file_name+'_flow.csv')
                 fm = FlowMeter(out_file)
                 print("output file:",out_file)
                 opsi.attach(fm)

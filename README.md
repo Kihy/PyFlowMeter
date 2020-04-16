@@ -23,19 +23,20 @@ The flowmeter is based on observer pattern and consists of two modules:
 - the flow meter, which gets notified by the streaming interface of a packet coming in. The flow meter keeps are flow dictionary of current flow, initializes an empty flow when a new flow is found(for tcp connections it is determined by stream index of tshark), or updates if it is an ongoing flow. To save memory when processing large datasets, if a tcp flow was not updated in a certain amount of time (currently 600 seconds), it is considered as finished and is saved to file and removed from flow dictionary. Once the interface has finished it stores all current flows to file and exits.
 
 ## Requirements
-The main code requires numpy and pyshark which can be installed with pip, and tshark which can be installed with apt-get
+The main code requires numpy, tqdm and pyshark which can be installed with pip, and tshark which can be installed with apt-get
 The testing code requires scipy and pandas for statistics calculations and various checks.
 
 
 ## Running the flowmeter
 To run, clone this repo, modify last few lines on PyFlowMeter.py and run
-
 ```
 python3 PyFlowMeter.py {path_to_pcap} {output_file_path}
 ```
 and the output is at output_file_path
 
 This repo also contains tests/pcap_file folder, which contains some sample traffic pcap file captured during slowloris attack and normal traffic. These are mainly used for testing but you could use it as sample.
+
+Also note that in v0.4.2.11 of pyshark, if you set only_summaries=True for FileCapture, it will miss the first packet. To solve this issue you would have to go to \_packets\_from\_tshark\_sync() function in capture.py and remove data = b''
 
 ## implementation Details
 - The offline version of the flow meter relies on tshark's internal stream indexes to determine flows. For real time interface, probably need to create 5 tuples as index.

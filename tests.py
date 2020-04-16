@@ -33,7 +33,6 @@ class Test(unittest.TestCase):
                 src="B"
                 dst="A"
             else:
-
                 raise AssertionError("port number mismatch")
 
             #check forward and backward packets match

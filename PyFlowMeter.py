@@ -1,12 +1,15 @@
 import argparse
+import os
+import subprocess
 import sys
 from itertools import product
-from Interfaces import *
+
 import numpy as np
 import pyshark
-import os
+from tqdm import tqdm
+
 from IncrementalStatistics import IncStats
-import time
+from Interfaces import *
 
 
 def decode_flags(flag):
@@ -20,6 +23,8 @@ def decode_flags(flag):
         integer array: array of length 8 indicating corresponding flags.
 
     """
+    if flag == "":
+        flag = "0x00"
     str_rep = "{:08b}".format(eval(flag))
     return np.array([i for i in str_rep], dtype='int32')
 
@@ -42,35 +47,18 @@ def cartesian_product(*args, seperator="_"):
     return return_list
 
 
-def tcp_extractor(packet):
-    """
-    extracts information from a single tcp packet
+def reformat_packet(packet):
+    packet_info = {}
+    merge_fields = ["dst_port", "src_port", "stream_index"]
+    same_fields = ["protocol", "flags", "length", "time"]
 
-    Args:
-        packet (packet): the received packet
-
-    Returns:
-        dictionary: information required for flow extraction.
-
-    """
-    packet_info = {
-        "protocol": "TCP",
-        "dst_port": packet.tcp.dstport,
-        "src_port": packet.tcp.srcport,
-        "flags": packet.tcp.flags,
-        "len": packet.length,
-    }
+    for i in same_fields:
+        packet_info[i] = getattr(packet, i)
+    for i in merge_fields:
+        packet_info[i] = getattr(
+            packet, "{}_{}".format(i, packet.protocol.lower()))
     return packet_info
 
-def udp_extractor(packet):
-    packet_info={
-    "protocol":"UDP",
-    "dst_port": packet.udp.dstport,
-    "src_port": packet.udp.srcport,
-    "flags": "0x00",
-    "len": packet.length
-    }
-    return packet_info
 
 class OfflinePacketStreamingInterface(StreamingInterface):
     """
@@ -88,7 +76,7 @@ class OfflinePacketStreamingInterface(StreamingInterface):
     def __init__(self, pcap_file_path):
         self._observers = set()
         self.pcap_file_path = pcap_file_path
-        self.num_pkt=0
+        self.num_pkt = 0
 
     def attach(self, observer):
         observer._subject = self
@@ -111,10 +99,16 @@ class OfflinePacketStreamingInterface(StreamingInterface):
             None:
 
         """
-        cap = pyshark.FileCapture(self.pcap_file_path)
-        for packet in cap:
+        accepted_protocols = ["TCP", "UDP"]
+        column_format = 'gui.column.format:"No.", "%m","Time", "%t","Source", "%s","Destination", "%d","Length", "%L","Stream_index_tcp", "%Cus:tcp.stream:0:R", "Stream_index_udp", "%Cus:udp.stream:0:R","Protocol", "%Cus:ip.proto:0:R","Flags", "%Cus:tcp.flags:0:R","Src_port_tcp", "%Cus:tcp.srcport:0:R","Dst_port_tcp", "%Cus:tcp.dstport:0:R","Src_port_udp", "%Cus:udp.srcport:0:R","Dst_port_udp", "%Cus:udp.dstport:0:R","Info", "%i"'
+        cap = pyshark.FileCapture(self.pcap_file_path, keep_packets=False,
+                                  only_summaries=True, custom_parameters={'-o': column_format})
+        for packet in tqdm(cap):
+            if packet.protocol not in accepted_protocols:
+                continue
+            packet = reformat_packet(packet)
             self._notify(packet)
-            self.num_pkt+=1
+            self.num_pkt += 1
         self._end_signal()
         cap.close()
 
@@ -147,6 +141,7 @@ class FlowMeter(Observer):
         feature_names (string list): list of feature names.
 
     """
+
     def __init__(self, output_path):
         self.output_file = open(output_path, "w")
         self.flows = {}
@@ -165,23 +160,13 @@ class FlowMeter(Observer):
         self.output_file.write("\n")
 
     def update(self, packet):
-        arrival_time = float(packet.sniff_timestamp)
-        if packet.transport_layer == "TCP":
+        arrival_time = float(packet["time"])
+        stream_id = "{}{}".format(packet["protocol"], packet["stream_index"])
 
-            stream_id = "TCP{}".format(packet.tcp.stream)
-            info = tcp_extractor(packet)
-            if stream_id not in self.flows.keys():
-                self._init_stream(stream_id, info, arrival_time)
-            self._update_stream(info, stream_id, arrival_time)
-            self._check_timeout(arrival_time)
-
-        elif packet.transport_layer=="UDP":
-            stream_id="UDP{}".format(packet.udp.stream)
-            info=udp_extractor(packet)
-            if stream_id not in self.flows.keys():
-                self._init_stream(stream_id, info, arrival_time)
-            self._update_stream(info, stream_id, arrival_time)
-            self._check_timeout(arrival_time)
+        if stream_id not in self.flows.keys():
+            self._init_stream(stream_id, packet, arrival_time)
+        self._update_stream(stream_id, packet,  arrival_time)
+        self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []
@@ -207,8 +192,7 @@ class FlowMeter(Observer):
             if delete:
                 del self.flows[index]
 
-
-    def _update_stream(self, packet_info, stream_id, arrival_time):
+    def _update_stream(self, stream_id, packet_info,  arrival_time):
         """
         updates the stream/connection/flow with extracted packet_info
 
@@ -229,16 +213,16 @@ class FlowMeter(Observer):
         else:
             direction = "bwd"
 
-        packet_len = int(packet_info["len"])
-        time_delta=arrival_time-stream["last_time"]
+        packet_len = int(packet_info["length"])
+        time_delta = arrival_time - stream["last_time"]
         stream["last_time"] = arrival_time
-        stream["duration"] = arrival_time-stream["init_time"]
+        stream["duration"] = arrival_time - stream["init_time"]
         stream[direction + "_tot_pkt"] += 1
         stream[direction + "_tot_byte"] += packet_len
         stream[direction + "_pkt_size"].update(packet_len)
 
         stream[direction + "_iat"].update(time_delta)
-        stream[direction + "_flags"] += decode_flags(packet_info["flags"])
+        stream[direction + "_flags"] += decode_flags(packet_info['flags'])
 
     def _init_stream(self, stream_id, packet_info, arrival_time):
         """
@@ -278,26 +262,30 @@ class FlowMeter(Observer):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Network traffic flow generator.')
-    parser.add_argument('pcap_file', type=str, help='the pcap file to be processed')
-    parser.add_argument('output_file', type=str, help='output file to stored the data')
-    parser.add_argument('-r', '--recursive', action="store_true", help='whether to recursively process all files in directory')
+    parser = argparse.ArgumentParser(
+        description='Network traffic flow generator.')
+    parser.add_argument('pcap_file', type=str,
+                        help='the pcap file to be processed')
+    parser.add_argument('output_file', type=str,
+                        help='output file to stored the data')
+    parser.add_argument('-r', '--recursive', action="store_true",
+                        help='whether to recursively process all files in directory')
 
     args = parser.parse_args()
     if args.recursive:
-        for dir in list(os.listdir(args.pcap_file)):
-            if dir.endswith(".pcap"):
-                input_file=os.path.join(args.pcap_file,dir)
-                print("processing:",input_file)
-                start_time=time.time()
+        for f in list(os.listdir(args.pcap_file)):
+            if f.endswith(".pcap"):
+                input_file = os.path.join(args.pcap_file, f)
+                print("processing:", input_file)
+
                 opsi = OfflinePacketStreamingInterface(input_file)
-                out_file_name=dir.split(".")[0]
-                out_file=os.path.join(args.output_file,out_file_name+'_flow.csv')
+                out_file_name = f.split(".")[0]
+                out_file = os.path.join(
+                    args.output_file, out_file_name + '_flow.csv')
                 fm = FlowMeter(out_file)
-                print("output file:",out_file)
+                print("output file:", out_file)
                 opsi.attach(fm)
                 opsi.start()
-                print("average {} packet per second".format(opsi.get_num_packets()/(time.time()-start_time)))
 
     else:
         opsi = OfflinePacketStreamingInterface(args.pcap_file)

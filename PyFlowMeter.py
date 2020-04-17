@@ -170,6 +170,7 @@ class FlowMeter(Observer):
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []
+        print(len(self.flows.keys()))
         for stream in self.flows.keys():
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
                 timed_out_stream.append(stream)

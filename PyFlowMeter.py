@@ -142,10 +142,10 @@ class FlowMeter(Observer):
 
     """
 
-    def __init__(self, output_path):
+    def __init__(self, output_path, timeout=30):
         self.output_file = open(output_path, "w")
         self.flows = {}
-        self.timeout = 600
+        self.timeout = timeout
         directions = ["fwd", "bwd"]
         ports = ["src", "dst"]
         type = ["pkt", "byte"]
@@ -174,6 +174,8 @@ class FlowMeter(Observer):
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
                 print("removing flows")
                 timed_out_stream.append(stream)
+        if len(timed_out_stream)>0:
+            self._save_batch_flow(timed_out_stream)
         self._save_batch_flow(timed_out_stream)
 
     def _save_batch_flow(self, timed_out_stream, delete=True):

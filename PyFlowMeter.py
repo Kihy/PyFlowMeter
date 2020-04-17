@@ -225,7 +225,11 @@ class FlowMeter(Observer):
         stream[direction + "_pkt_size"].update(packet_len)
 
         stream[direction + "_iat"].update(time_delta)
-        stream[direction + "_flags"] += decode_flags(packet_info['flags'])
+
+        flags=decode_flags(packet_info['flags'])
+        if len(flags>8):
+            flags=flags[-8:]
+        stream[direction + "_flags"] += flags
 
     def _init_stream(self, stream_id, packet_info, arrival_time):
         """

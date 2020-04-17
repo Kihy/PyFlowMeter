@@ -189,8 +189,10 @@ class FlowMeter(Observer):
             values += [x for x in stream["bwd_flags"]]
             self.output_file.write(",".join(str(x) for x in values))
             self.output_file.write("\n")
+            self.output_file.flush()
             if delete:
                 del self.flows[index]
+
 
     def _update_stream(self, stream_id, packet_info,  arrival_time):
         """

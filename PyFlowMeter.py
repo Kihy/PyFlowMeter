@@ -176,7 +176,6 @@ class FlowMeter(Observer):
                 timed_out_stream.append(stream)
         if len(timed_out_stream)>0:
             self._save_batch_flow(timed_out_stream)
-        self._save_batch_flow(timed_out_stream)
 
     def _save_batch_flow(self, timed_out_stream, delete=True):
         for index in sorted(list(timed_out_stream), key=lambda x: self.flows[x]["init_time"]):

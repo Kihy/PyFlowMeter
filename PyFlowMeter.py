@@ -172,7 +172,6 @@ class FlowMeter(Observer):
         timed_out_stream = []
         for stream in self.flows.keys():
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
-                print("removing flows")
                 timed_out_stream.append(stream)
         if len(timed_out_stream)>0:
             self._save_batch_flow(timed_out_stream)

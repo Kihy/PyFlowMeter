@@ -259,6 +259,7 @@ class FlowMeter(Observer):
         self.flows[stream_id] = init_dict
 
     def close(self):
+        print("closing file")
         self._save_batch_flow(self.flows.keys())
         self.output_file.close()
 

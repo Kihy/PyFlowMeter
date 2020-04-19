@@ -1,7 +1,9 @@
 import argparse
+import itertools
 import os
 import subprocess
 import sys
+from collections import OrderedDict
 from itertools import product
 
 import numpy as np
@@ -142,11 +144,12 @@ class OfflineFlowMeter(Observer):
 
     """
 
-    def __init__(self, output_path, timeout=600, check_interval=1):
+    def __init__(self, output_path, timeout=600, check_interval=1, check_range=100):
         self.output_file = open(output_path, "w")
-        self.flows = {}
+        self.flows = OrderedDict()
         self.timeout = timeout
         self.check_interval = check_interval
+        self.check_range = check_range
         directions = ["fwd", "bwd"]
         ports = ["src", "dst"]
         type = ["pkt", "byte"]
@@ -175,7 +178,7 @@ class OfflineFlowMeter(Observer):
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []
-        for stream in self.flows.keys():
+        for stream in itertools.islice(self.flows, self.check_range):
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
                 timed_out_stream.append(stream)
         if len(timed_out_stream) > 0:
@@ -235,6 +238,9 @@ class OfflineFlowMeter(Observer):
             flags = flags[-8:]
         stream[direction + "_flags"] += flags
 
+        # move to end
+        self.flows.move_to_end(stream_id)
+
     def _init_stream(self, stream_id, packet_info, arrival_time):
         """
         initializes the stream with default values
@@ -286,6 +292,8 @@ if __name__ == '__main__':
                         help='timeout for connections, default to 600. For offline generation of non slowloris type traffic it can be set to 30 for performance gain.', default=600)
     parser.add_argument('-i', '--interval', type=int,
                         help='check for timeout every i packets', default=1)
+    parser.add_argument('-l', '--last', type=int,
+                        help='checks the last l number of packet for removal', default=100)
 
     args = parser.parse_args()
     if args.recursive:
@@ -298,13 +306,15 @@ if __name__ == '__main__':
                 out_file_name = f.split(".")[0]
                 out_file = os.path.join(
                     args.output_file, out_file_name + '_flow.csv')
-                fm = OfflineFlowMeter(out_file, timeout=args.timeout)
+                fm = OfflineFlowMeter(
+                    out_file, timeout=args.timeout, check_interval=args.interval, check_range=args.last)
                 print("output file:", out_file)
                 opsi.attach(fm)
                 opsi.start()
 
     else:
         opsi = OfflinePacketStreamingInterface(args.pcap_file)
-        fm = OfflineFlowMeter(args.output_file, timeout=args.timeout)
+        fm = OfflineFlowMeter(args.output_file, timeout=args.timeout,
+                              check_interval=args.interval, check_range=args.last)
         opsi.attach(fm)
         opsi.start()

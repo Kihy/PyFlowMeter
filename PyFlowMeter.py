@@ -173,7 +173,7 @@ class FlowMeter(Observer):
         for stream in self.flows.keys():
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
                 timed_out_stream.append(stream)
-        if len(timed_out_stream)>0:
+        if len(timed_out_stream) > 0:
             self._save_batch_flow(timed_out_stream)
 
     def _save_batch_flow(self, timed_out_stream, delete=True):
@@ -193,7 +193,6 @@ class FlowMeter(Observer):
             self.output_file.flush()
             if delete:
                 del self.flows[index]
-
 
     def _update_stream(self, stream_id, packet_info,  arrival_time):
         """
@@ -226,9 +225,9 @@ class FlowMeter(Observer):
 
         stream[direction + "_iat"].update(time_delta)
 
-        flags=decode_flags(packet_info['flags'])
-        if len(flags>8):
-            flags=flags[-8:]
+        flags = decode_flags(packet_info['flags'])
+        if len(flags > 8):
+            flags = flags[-8:]
         stream[direction + "_flags"] += flags
 
     def _init_stream(self, stream_id, packet_info, arrival_time):
@@ -278,6 +277,8 @@ if __name__ == '__main__':
                         help='output file to stored the data')
     parser.add_argument('-r', '--recursive', action="store_true",
                         help='whether to recursively process all files in directory')
+    parser.add_argument('-t', '--timeout', type=int,
+                        help='timeout for connections, default to 600. For offline generation of non slowloris type traffic it can be set to 30 for performance gain.', default=600)
 
     args = parser.parse_args()
     if args.recursive:
@@ -290,13 +291,13 @@ if __name__ == '__main__':
                 out_file_name = f.split(".")[0]
                 out_file = os.path.join(
                     args.output_file, out_file_name + '_flow.csv')
-                fm = FlowMeter(out_file)
+                fm = FlowMeter(out_file, timeout=args.timeout)
                 print("output file:", out_file)
                 opsi.attach(fm)
                 opsi.start()
 
     else:
         opsi = OfflinePacketStreamingInterface(args.pcap_file)
-        fm = FlowMeter(args.output_file)
+        fm = FlowMeter(args.output_file, timeout=args.timeout)
         opsi.attach(fm)
         opsi.start()

@@ -127,7 +127,7 @@ class OfflinePacketStreamingInterface(StreamingInterface):
         return self.num_pkt
 
 
-class FlowMeter(Observer):
+class OfflineFlowMeter(Observer):
     """
     the flow meter which extracts various features from flow.
 
@@ -142,10 +142,11 @@ class FlowMeter(Observer):
 
     """
 
-    def __init__(self, output_path, timeout=30):
+    def __init__(self, output_path, timeout=600, check_interval=1):
         self.output_file = open(output_path, "w")
         self.flows = {}
         self.timeout = timeout
+        self.check_interval = check_interval
         directions = ["fwd", "bwd"]
         ports = ["src", "dst"]
         type = ["pkt", "byte"]
@@ -166,7 +167,11 @@ class FlowMeter(Observer):
         if stream_id not in self.flows.keys():
             self._init_stream(stream_id, packet, arrival_time)
         self._update_stream(stream_id, packet,  arrival_time)
-        self._check_timeout(arrival_time)
+
+        # to speed things up it checks timeout once every certain number of packets.
+        # note that self._subject is assigned by streaming interface.
+        if self._subject.num_pkt % self.check_interval == 0:
+            self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):
         timed_out_stream = []
@@ -279,6 +284,8 @@ if __name__ == '__main__':
                         help='whether to recursively process all files in directory')
     parser.add_argument('-t', '--timeout', type=int,
                         help='timeout for connections, default to 600. For offline generation of non slowloris type traffic it can be set to 30 for performance gain.', default=600)
+    parser.add_argument('-i', '--interval', type=int,
+                        help='check for timeout every i packets', default=1)
 
     args = parser.parse_args()
     if args.recursive:
@@ -291,13 +298,13 @@ if __name__ == '__main__':
                 out_file_name = f.split(".")[0]
                 out_file = os.path.join(
                     args.output_file, out_file_name + '_flow.csv')
-                fm = FlowMeter(out_file, timeout=args.timeout)
+                fm = OfflineFlowMeter(out_file, timeout=args.timeout)
                 print("output file:", out_file)
                 opsi.attach(fm)
                 opsi.start()
 
     else:
         opsi = OfflinePacketStreamingInterface(args.pcap_file)
-        fm = FlowMeter(args.output_file, timeout=args.timeout)
+        fm = OfflineFlowMeter(args.output_file, timeout=args.timeout)
         opsi.attach(fm)
         opsi.start()

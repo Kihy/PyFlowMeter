@@ -12,7 +12,7 @@ class Test(unittest.TestCase):
 
         # generate flow
         opsi = OfflinePacketStreamingInterface(twitch)
-        fm = FlowMeter(twitch_out)
+        fm = OfflineFlowMeter(twitch_out)
         opsi.attach(fm)
         opsi.start()
 

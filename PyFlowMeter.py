@@ -50,6 +50,18 @@ def cartesian_product(*args, seperator="_"):
 
 
 def reformat_packet(packet):
+    """
+    reformats the packet, in particular combines fields that are common in UDP
+    and TCP but are generated seperately, such as dst and src ports and stream index
+
+
+    Args:
+        packet (packetSummary): the packet summary with neccesary information .
+
+    Returns:
+        dict: reformatted packet with dst port, src port and stream index merged.
+
+    """
     packet_info = {}
     merge_fields = ["dst_port", "src_port", "stream_index"]
     same_fields = ["protocol", "flags", "length", "time"]
@@ -65,48 +77,87 @@ def reformat_packet(packet):
 class OfflinePacketStreamingInterface(StreamingInterface):
     """
     The offline packet streaming interface that reads pcap files and notifies
-    the observers about each packet.
+    the observers about the packet if it uses TCP or UDP.
 
     Args:
         pcap_file_path (string): path to pcap file.
+        accepted_protocols (string list): list of accepted protocols, Defaults to ["TCP","UDP"]
 
     Attributes:
         _observers (set): set of observers.
+        num_pkt (int): number of packets currently read.
+        column_format (string): column format used in packet summary.
 
     """
 
-    def __init__(self, pcap_file_path):
+    def __init__(self, pcap_file_path, accepted_protocols = ["TCP", "UDP"]):
         self._observers = set()
         self.pcap_file_path = pcap_file_path
         self.num_pkt = 0
+        self.accepted_protocols=accepted_protocols
+        self.column_format = 'gui.column.format:"No.", "%m","Time", "%t","Source", "%s","Destination", "%d","Length", "%L","Stream_index_tcp", "%Cus:tcp.stream:0:R", "Stream_index_udp", "%Cus:udp.stream:0:R","Protocol", "%Cus:ip.proto:0:R","Flags", "%Cus:tcp.flags:0:R","Src_port_tcp", "%Cus:tcp.srcport:0:R","Dst_port_tcp", "%Cus:tcp.dstport:0:R","Src_port_udp", "%Cus:udp.srcport:0:R","Dst_port_udp", "%Cus:udp.dstport:0:R","Info", "%i"'
+
 
     def attach(self, observer):
-        observer._subject = self
-        self._observers.add(observer)
+        """
+        attaches an observer to it self, and adds it self of the observer's subject
+        Args:
+            observer (Observer): an Observer that is a subclass of Observer.
+
+        Returns:
+            None
+
+        """
+        if isinstance(observer, Observer):
+            observer._subject = self
+            self._observers.add(observer)
+        else:
+            raise TypeError("attached object is not a child of Observer")
 
     def detach(self, observer):
+        """
+        Detaches observer.
+
+        Args:
+            observer (Observer): an Observer that is a subclass of Observer.
+
+
+        Returns:
+            None
+
+        """
         observer._subject = None
         self._observers.discard(observer)
 
     def _notify(self, packet):
+        """
+        notifies all observers about a packet
+
+        Args:
+            packet (packet): a pyshark packet.
+
+        Returns:
+            None
+
+        """
         for observer in self._observers:
             observer.update(packet)
 
     def start(self):
         """
-        starts reading capture file, notifies observers of each packet,
+        starts reading capture file, notifies observers of each packet if it is
+        in accepted_protocols.
         signals end when done
 
         Returns:
             None:
 
         """
-        accepted_protocols = ["TCP", "UDP"]
-        column_format = 'gui.column.format:"No.", "%m","Time", "%t","Source", "%s","Destination", "%d","Length", "%L","Stream_index_tcp", "%Cus:tcp.stream:0:R", "Stream_index_udp", "%Cus:udp.stream:0:R","Protocol", "%Cus:ip.proto:0:R","Flags", "%Cus:tcp.flags:0:R","Src_port_tcp", "%Cus:tcp.srcport:0:R","Dst_port_tcp", "%Cus:tcp.dstport:0:R","Src_port_udp", "%Cus:udp.srcport:0:R","Dst_port_udp", "%Cus:udp.dstport:0:R","Info", "%i"'
+
         cap = pyshark.FileCapture(self.pcap_file_path, keep_packets=False,
-                                  only_summaries=True, custom_parameters={'-o': column_format})
+                                  only_summaries=True, custom_parameters={'-o': self.column_format})
         for packet in tqdm(cap):
-            if packet.protocol not in accepted_protocols:
+            if packet.protocol not in self.accepted_protocols:
                 continue
             packet = reformat_packet(packet)
             self._notify(packet)
@@ -131,16 +182,22 @@ class OfflinePacketStreamingInterface(StreamingInterface):
 
 class OfflineFlowMeter(Observer):
     """
-    the flow meter which extracts various features from flow.
+    an offline flow meter which extracts various features from flow. Offline
+    because it relies on wireshark's stream index as key.
 
     Args:
         output_path (string): path to output file.
+        timeout (int): timeout to determine a connection has finished. Defaults to 600.
+        check_interval (int): period in packets to check for timed out flows. Defaults to 1.
+        check_range (int): checks the oldest number of flows. Defaults to 100.
 
     Attributes:
         output_file (file): the output file that can be used write directly.
         flows (dict): a dictionary of current flows.
         timeout (int): duration to consider flow as being finished.
         feature_names (string list): list of feature names.
+        check_interval
+        check_range
 
     """
 
@@ -164,6 +221,16 @@ class OfflineFlowMeter(Observer):
         self.output_file.write("\n")
 
     def update(self, packet):
+        """
+        main cycle of flow meter, called once a packet is generated.
+
+        Args:
+            packet (dict): packet being generated, already in dict format
+
+        Returns:
+            None
+
+        """
         arrival_time = float(packet["time"])
         stream_id = "{}{}".format(packet["protocol"], packet["stream_index"])
 
@@ -177,6 +244,16 @@ class OfflineFlowMeter(Observer):
             self._check_timeout(arrival_time)
 
     def _check_timeout(self, arrival_time):
+        """
+        checks the oldest self.check_range number of flows to see if they have exceeded
+        self.timeout
+        Args:
+            arrival_time (type): Description of parameter `arrival_time`.
+
+        Returns:
+            type: Description of returned object.
+
+        """
         timed_out_stream = []
         for stream in itertools.islice(self.flows, self.check_range):
             if arrival_time - self.flows[stream]["last_time"] > self.timeout:
@@ -184,8 +261,20 @@ class OfflineFlowMeter(Observer):
         if len(timed_out_stream) > 0:
             self._save_batch_flow(timed_out_stream)
 
-    def _save_batch_flow(self, timed_out_stream, delete=True):
-        for index in sorted(list(timed_out_stream), key=lambda x: self.flows[x]["init_time"]):
+    def _save_batch_flow(self, stream_ids, delete=True):
+        """
+        saves a batch of flows to csv file, deletes them from self.flows afterwards
+        if delete is set to True
+
+        Args:
+            stream_ids (int list): list of stream_id to save.
+            delete (boolean): whether to delete after saving. Defaults to True.
+
+        Returns:
+            None
+
+        """
+        for index in sorted(list(stream_ids), key=lambda x: self.flows[x]["init_time"]):
 
             stream = self.flows[index]
             values = [stream[x] for x in self.feature_names[:8]]
@@ -204,11 +293,13 @@ class OfflineFlowMeter(Observer):
 
     def _update_stream(self, stream_id, packet_info,  arrival_time):
         """
-        updates the stream/connection/flow with extracted packet_info
+        updates the stream/connection/flow with extracted packet_info.
+        Once updated the stream_id is moved to the end of self.flows
 
         Args:
             packet_info (dictionary): information extracted with tcp_extractor(packet).
             stream_id (int): index of stream stored.
+            arrival_time(float): time of arrival.
 
         Returns:
             None: The information is updated directly in stream.
@@ -273,6 +364,13 @@ class OfflineFlowMeter(Observer):
         self.flows[stream_id] = init_dict
 
     def close(self):
+        """
+        writes all remaining flows to file and closes the file.
+
+        Returns:
+            None
+
+        """
         print("closing file")
         self._save_batch_flow(self.flows.keys())
         self.output_file.close()
@@ -289,11 +387,11 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--recursive', action="store_true",
                         help='whether to recursively process all files in directory')
     parser.add_argument('-t', '--timeout', type=int,
-                        help='timeout for connections, default to 600. For offline generation of non slowloris type traffic it can be set to 30 for performance gain.', default=600)
+                        help='timeout for connections, default to 600.', default=600)
     parser.add_argument('-i', '--interval', type=int,
-                        help='check for timeout every i packets', default=1)
+                        help='check for timeout every i packets, default to 1000', default=1000)
     parser.add_argument('-l', '--last', type=int,
-                        help='checks the last l number of packet for removal', default=100)
+                        help='checks the last l number of packet for removal, default to 1000', default=1000)
 
     args = parser.parse_args()
     if args.recursive:
